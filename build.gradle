@@ -10,6 +10,14 @@ application {
     mainClass = 'com.jbeat.app.JBeatApplication'
 }
 
+jar {
+    manifest {
+        attributes(
+                'Main-Class': 'com.jbeat.app.JBeatApplication'
+        )
+    }
+}
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(26)
