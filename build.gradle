@@ -1,0 +1,43 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'com.jbeat'
+version = '1.0-SNAPSHOT'
+
+application {
+    mainClass = 'com.jbeat.Main'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(26)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release.set(26)
+    options.encoding = 'UTF-8'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    implementation 'mysql:mysql-connector-java:8.0.33'
+    implementation 'org.jsoup:jsoup:1.17.2'
+    implementation 'com.google.code.gson:gson:2.10.1'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.named('run') {
+    jvmArgs('-Dfile.encoding=UTF-8')
+}
