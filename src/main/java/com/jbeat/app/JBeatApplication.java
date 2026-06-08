@@ -3,12 +3,15 @@ package com.jbeat.app;
 import com.jbeat.common.db.DatabaseManager;
 import com.jbeat.common.util.AppConfig;
 import com.jbeat.controller.HttpServerManager;
+import com.jbeat.controller.PlayerStatusController;
 import com.jbeat.controller.PlaylistController;
 import com.jbeat.repository.*;
 
 public class JBeatApplication {
     public static void main(String[] args) {
         System.out.println("=== J-Beat 시스템 부팅 중 ===");
+
+        PlayerStatusController statusController = new PlayerStatusController();
 
         MemoryDatabase db = MemoryDatabase.getInstance();
         db.init(new CsvTrackRepositoryImpl(), new TxtLogRepositoryImpl());

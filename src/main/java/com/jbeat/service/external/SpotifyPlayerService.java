@@ -286,4 +286,121 @@ public class SpotifyPlayerService {
         }
         return null;
     }
+    public double getCurrentTime() {
+        try {
+            String token = authService.getToken();
+            if (token == null) return 0.0;
+
+            String base64Url = "aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjEvbWUvcGxheWVy";
+            String baseUrl = new String(java.util.Base64.getDecoder().decode(base64Url));
+            URL url = new URL(baseUrl);
+
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Authorization", "Bearer " + token);
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode == 200) {
+                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) {
+                    response.append(line);
+                }
+                br.close();
+
+                String json = response.toString();
+
+                String searchKey = "\"progress_ms\"";
+                int index = json.indexOf(searchKey);
+                if (index != -1) {
+                    int colonIndex = json.indexOf(":", index);
+                    int commaIndex = json.indexOf(",", colonIndex);
+                    if(commaIndex == -1) commaIndex = json.indexOf("}", colonIndex); // 마지막 요소일 경우 대비
+
+                    String progressStr = json.substring(colonIndex + 1, commaIndex).trim();
+                    double progressMs = Double.parseDouble(progressStr);
+                    return progressMs / 1000.0; // 초 단위로 변환해서 반환
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("❌ 현재 재생 위치 조회 중 오류 발생");
+            e.printStackTrace();
+        }
+        return 0.0;
+    }
+
+    public double getTotalDuration() {
+        try {
+            String token = authService.getToken();
+            if (token == null) return 0.0;
+
+            String base64Url = "aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjEvbWUvcGxheWVy";
+            String baseUrl = new String(java.util.Base64.getDecoder().decode(base64Url));
+            URL url = new URL(baseUrl);
+
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Authorization", "Bearer " + token);
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode == 200) {
+                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) {
+                    response.append(line);
+                }
+                br.close();
+
+                String json = response.toString();
+
+                String searchKey = "\"duration_ms\"";
+                int index = json.indexOf(searchKey);
+                if (index != -1) {
+                    int colonIndex = json.indexOf(":", index);
+                    int commaIndex = json.indexOf(",", colonIndex);
+                    if(commaIndex == -1) commaIndex = json.indexOf("}", colonIndex);
+
+                    String durationStr = json.substring(colonIndex + 1, commaIndex).trim();
+                    double durationMs = Double.parseDouble(durationStr);
+                    return durationMs / 1000.0; // 초 단위로 변환해서 반환
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("❌ 곡 길이 조회 중 오류 발생");
+            e.printStackTrace();
+        }
+        return 0.0;
+    }
+
+    public void seekTo(double seconds) {
+        try {
+            String token = authService.getToken();
+            String deviceId = getAvailableDeviceId(token);
+            if (deviceId == null) return;
+
+            long positionMs = Math.round(seconds * 1000);
+
+            String base64Url = "aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjEvbWUvcGxheWVyL3NlZWs=";
+            String baseUrl = new String(java.util.Base64.getDecoder().decode(base64Url));
+            URL url = new URL(baseUrl + "?position_ms=" + positionMs + "&device_id=" + deviceId);
+
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("PUT");
+            conn.setRequestProperty("Authorization", "Bearer " + token);
+            conn.setRequestProperty("Content-Length", "0");
+            conn.setDoOutput(true);
+            conn.getOutputStream().write(new byte[0]);
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode == 204) {
+                System.out.println("⏭️ 성공: " + seconds + "초 위치로 이동 완료");
+            } else {
+                System.out.println("❌ 위치 이동 실패! HTTP 에러 코드: " + responseCode);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }

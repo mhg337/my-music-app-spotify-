@@ -21,5 +21,7 @@ public class ApiRouter {
         server.createContext("/api/playlists/rename", new PlaylistController());
         server.createContext("/api/playlists/delete", new PlaylistController());
         server.createContext("/api/playlists/removeTrack", new PlaylistController());
+        server.createContext("/api/status", new PlayerStatusController());
+        server.createContext("/api/seek", new PlayerStatusController());
     }
 }

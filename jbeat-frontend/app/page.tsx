@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 
-// 🌐 접속 환경에 따라 자동으로 백엔드 주소를 바꿔주는 마법의 변수
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 const getGenreColor = (genre: string) => {
@@ -32,6 +31,55 @@ export default function MusicDashboard() {
 
   const [chartList, setChartList] = useState<any[]>([]);
   const [isChartLoading, setIsChartLoading] = useState(false);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState("");
+  const [recommendedList, setRecommendedList] = useState<{ title: string; uri: string; genre: string }[]>([]);
+  const [keyword, setKeyword] = useState("");
+  const [playingList, setPlayingList] = useState<{ title: string; uri: string; genre: string }[]>([]);
+  const [playingIndex, setPlayingIndex] = useState(-1);
+  const [history, setHistory] = useState<{ title: string; genre: string }[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds)) return "0:00";
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const PREDEFINED_GENRES = ["K-Pop", "Pop", "Hip-Hop/Rap", "R&B/Soul", "Dance", "Jazz"];
+  const currentPlaylist = playlists.find(p => p.id === selectedPlaylistId);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (playingIndex !== -1) {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/status`);
+          if (res.ok) {
+            const data = await res.json();
+            setCurrentTime(data.currentTime);
+            setDuration(data.duration);
+          }
+        } catch (e) {
+          console.error("재생 상태를 가져올 수 없습니다.");
+        }
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [playingIndex]);
+
+  useEffect(() => {
+    if (duration > 0 && (duration - currentTime) <= 2.0) {
+      setCurrentTime(0);
+      setDuration(0);
+
+      nextTrack();
+    }
+  }, [currentTime, duration]);
 
   useEffect(() => {
     const fetchChart = async () => {
@@ -47,65 +95,6 @@ export default function MusicDashboard() {
     };
     fetchChart();
   }, []);
-
-  const addChartTrackToPlaylist = async (track: any) => {
-    if (!selectedPlaylistId) {
-      alert("먼저 곡을 담을 플레이리스트를 선택해주세요!");
-      return;
-    }
-
-    const searchQuery = `${track.title} ${track.artist}`;
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(searchQuery)}`);
-      const uri = await res.text();
-
-      if (uri !== "NOT_FOUND") {
-        const newTrack = {
-          title: `${track.title} - ${track.artist}`,
-          uri: uri,
-          genre: "K-Pop"
-        };
-        addToPlaylist(newTrack);
-        alert(`'${track.title}' 곡이 추가되었습니다!`);
-      } else {
-        alert("스포티파이에서 해당 곡의 재생 주소를 찾을 수 없습니다.");
-      }
-    } catch (e) {
-      alert("서버 연결 실패: 곡을 추가할 수 없습니다.");
-    }
-  };
-
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState("");
-  const [recommendedList, setRecommendedList] = useState<{ title: string; uri: string; genre: string }[]>([]);
-  const currentPlaylist = playlists.find(p => p.id === selectedPlaylistId);
-
-  const [keyword, setKeyword] = useState("");
-  const [playingList, setPlayingList] = useState<{ title: string; uri: string; genre: string }[]>([]);
-  const [playingIndex, setPlayingIndex] = useState(-1);
-  const [history, setHistory] = useState<{ title: string; genre: string }[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const PREDEFINED_GENRES = ["K-Pop", "Pop", "Hip-Hop/Rap", "R&B/Soul", "Dance", "Jazz"];
-
-  const createPlaylist = async () => {
-    const name = prompt("새 플레이리스트 이름");
-    if (!name) return;
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/playlists/create?name=${encodeURIComponent(name)}`);
-      const newId = await res.text();
-
-      if (newId !== "ERROR") {
-        const newPlaylist = { id: newId, name: name, tracks: [] };
-        setPlaylists([...playlists, newPlaylist]);
-        setSelectedPlaylistId(newId);
-      }
-    } catch (e) {
-      alert("서버 연결 실패: 플레이리스트를 생성할 수 없습니다.");
-    }
-  };
 
   useEffect(() => {
     const fetchPlaylists = async () => {
@@ -124,6 +113,36 @@ export default function MusicDashboard() {
       setHistory(JSON.parse(savedHistory));
     }
   }, []);
+
+  const handleSeek = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = Number(e.target.value);
+    setCurrentTime(newTime); // 화면 바 위치 즉시 이동
+
+    try {
+      // 서버에 시간 이동 요청
+      await fetch(`${API_BASE_URL}/api/seek?time=${newTime}`);
+    } catch (e) {
+      console.error("재생 위치 변경 실패");
+    }
+  };
+
+  const createPlaylist = async () => {
+    const name = prompt("새 플레이리스트 이름");
+    if (!name) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/playlists/create?name=${encodeURIComponent(name)}`);
+      const newId = await res.text();
+
+      if (newId !== "ERROR") {
+        const newPlaylist = { id: newId, name: name, tracks: [] };
+        setPlaylists([...playlists, newPlaylist]);
+        setSelectedPlaylistId(newId);
+      }
+    } catch (e) {
+      alert("서버 연결 실패: 플레이리스트를 생성할 수 없습니다.");
+    }
+  };
 
   const renamePlaylist = async () => {
     if (!selectedPlaylistId) return;
@@ -250,6 +269,34 @@ export default function MusicDashboard() {
     setIsLoading(false);
   };
 
+  const addChartTrackToPlaylist = async (track: any) => {
+    if (!selectedPlaylistId) {
+      alert("먼저 곡을 담을 플레이리스트를 선택해주세요!");
+      return;
+    }
+
+    const searchQuery = `${track.title} ${track.artist}`;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(searchQuery)}`);
+      const uri = await res.text();
+
+      if (uri !== "NOT_FOUND") {
+        const newTrack = {
+          title: `${track.title} - ${track.artist}`,
+          uri: uri,
+          genre: "K-Pop"
+        };
+        addToPlaylist(newTrack);
+        alert(`'${track.title}' 곡이 추가되었습니다!`);
+      } else {
+        alert("스포티파이에서 해당 곡의 재생 주소를 찾을 수 없습니다.");
+      }
+    } catch (e) {
+      alert("서버 연결 실패: 곡을 추가할 수 없습니다.");
+    }
+  };
+
   const addToPlaylist = async (track: { title: string; uri: string; genre: string }) => {
     if (!selectedPlaylistId) {
       alert("먼저 곡을 담을 플레이리스트를 선택하세요.");
@@ -320,25 +367,24 @@ export default function MusicDashboard() {
   };
 
   const playFromIndex = async (list: { title: string; uri: string; genre: string }[], startIndex: number, listType: 'MY' | 'REC') => {
-    setPlayingList(list);
-    setPlayingIndex(startIndex);
+      setPlayingList(list);
+      setPlayingIndex(startIndex);
 
-    const targetTrack = list[startIndex];
-    setCurrentTrack(`🎵 재생 중: ${targetTrack.title} ${listType === 'REC' ? '(추천곡)' : ''}`);
+      setCurrentTime(0);
+      setDuration(0);
 
-    const safeGenre = targetTrack.genre || "Unknown";
-    const updatedHistory = [...history, { title: targetTrack.title, genre: safeGenre }];
-    setHistory(updatedHistory);
-    localStorage.setItem('jbeat_history', JSON.stringify(updatedHistory));
+      const targetTrack = list[startIndex];
+      setCurrentTrack(`🎵 재생 중: ${targetTrack.title} ${listType === 'REC' ? '(추천곡)' : ''}`);
 
-    try {
-      await fetch(`${API_BASE_URL}/api/play?uri=${targetTrack.uri}`);
-      for (let i = startIndex + 1; i < list.length; i++) {
-        await fetch(`${API_BASE_URL}/api/queue?uri=${list[i].uri}`);
-        await new Promise(resolve => setTimeout(resolve, 600));
-      }
-    } catch (error) {}
-  };
+      const safeGenre = targetTrack.genre || "Unknown";
+      const updatedHistory = [...history, { title: targetTrack.title, genre: safeGenre }];
+      setHistory(updatedHistory);
+      localStorage.setItem('jbeat_history', JSON.stringify(updatedHistory));
+
+      try {
+        await fetch(`${API_BASE_URL}/api/play?uri=${targetTrack.uri}`);
+      } catch (error) {}
+    };
 
   const previousTrack = () => {
     if (playingList.length === 0) return;
@@ -347,15 +393,27 @@ export default function MusicDashboard() {
     playFromIndex(playingList, targetIdx, 'MY');
   };
 
-  const nextTrack = () => {
-    if (playingList.length === 0) return;
-    let targetIdx = playingIndex + 1;
-    if (targetIdx >= playingList.length) {
-      setCurrentTrack("🛑 마지막 곡입니다");
-      return;
-    }
-    playFromIndex(playingList, targetIdx, 'MY');
-  };
+  const nextTrack = async () => {
+      if (playingList.length === 0) return;
+      let targetIdx = playingIndex + 1;
+
+      if (targetIdx >= playingList.length) {
+        setCurrentTrack("🛑 재생이 모두 완료되었습니다");
+
+        try {
+          await fetch(`${API_BASE_URL}/api/pause`);
+        } catch (e) {
+          console.error("정지 명령 전송 실패");
+        }
+
+        setPlayingIndex(-1);
+        setCurrentTime(0);
+        setDuration(0);
+        return;
+      }
+
+      playFromIndex(playingList, targetIdx, 'MY');
+    };
 
   const pauseTrack = async () => {
     setCurrentTrack("⏸️ 일시 정지됨");
@@ -411,6 +469,32 @@ export default function MusicDashboard() {
       <div style={{ backgroundColor: '#282828', padding: '20px', borderRadius: '10px', marginBottom: '20px', textAlign: 'center', fontSize: '1.2rem' }}>
         현재 상태: <strong style={{ color: '#1DB954' }}>{currentTrack}</strong>
       </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '15px', maxWidth: '600px', margin: '0 auto 25px', justifyContent: 'center' }}>
+        <span style={{ color: '#b3b3b3', fontSize: '0.9rem', minWidth: '40px', textAlign: 'right' }}>
+          {formatTime(currentTime)}
+        </span>
+
+        <input
+          type="range"
+          min="0"
+          max={duration || 100}
+          value={currentTime}
+          onChange={handleSeek}
+          disabled={duration === 0}
+          style={{
+            width: '100%',
+            cursor: duration === 0 ? 'not-allowed' : 'pointer',
+            accentColor: '#1DB954'
+          }}
+        />
+
+        <span style={{ color: '#b3b3b3', fontSize: '0.9rem', minWidth: '40px', textAlign: 'left' }}>
+          {formatTime(duration)}
+        </span>
+      </div>
+
+      {/* 기존 버튼 UI 영역 */}
       <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginBottom: '30px' }}>
         <button onClick={previousTrack} style={controlButtonStyle}>⏪ 이전</button>
         <button onClick={pauseTrack} style={controlButtonStyle}>⏸️ 정지</button>
