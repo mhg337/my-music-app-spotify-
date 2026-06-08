@@ -5,7 +5,9 @@ import java.net.InetSocketAddress;
 
 public class HttpServerManager {
     public void startServer(int port) throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+        String portStr = System.getenv("PORT");
+        port = (portStr != null) ? Integer.parseInt(portStr) : 8080;
+        HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
         ApiRouter.route(server);
         server.setExecutor(null);
         server.start();

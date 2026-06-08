@@ -7,7 +7,7 @@ group = 'com.jbeat'
 version = '1.0-SNAPSHOT'
 
 application {
-    mainClass = 'com.jbeat.Main'
+    mainClass = 'com.jbeat.app.JBeatApplication'
 }
 
 java {
