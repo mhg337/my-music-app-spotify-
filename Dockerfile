@@ -1,5 +1,5 @@
 # 1. 자바 17 버전이 설치된 깨끗한 컴퓨터(리눅스)를 한 대 빌려옴
-FROM eclipse-temurin:17-jdk-jammy
+FROM eclipse-temurin:26-jdk-jammy
 
 # 2. 그 컴퓨터 안에서 작업할 폴더를 만듦
 WORKDIR /app
