@@ -12,4 +12,4 @@ RUN chmod +x gradlew
 RUN ./gradlew build -x test
 
 # 5. 서버를 실행
-CMD ["./gradlew", "run"]
+CMD ["sh", "-c", "java -jar build/libs/*.jar"]
