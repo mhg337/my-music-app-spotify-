@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 
+// 🌐 접속 환경에 따라 자동으로 백엔드 주소를 바꿔주는 마법의 변수
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
 const getGenreColor = (genre: string) => {
   const predefined: Record<string, string> = {
     "K-Pop": "#1DB954", "Pop": "#1da1f2", "Hip-Hop/Rap": "#ff4b4b",
@@ -34,7 +37,7 @@ export default function MusicDashboard() {
     const fetchChart = async () => {
       setIsChartLoading(true);
       try {
-        const res = await fetch("http://localhost:8080/api/chart");
+        const res = await fetch(`${API_BASE_URL}/api/chart`);
         const data = await res.json();
         setChartList(data);
       } catch (e) {
@@ -54,7 +57,7 @@ export default function MusicDashboard() {
     const searchQuery = `${track.title} ${track.artist}`;
 
     try {
-      const res = await fetch(`http://localhost:8080/api/search?q=${encodeURIComponent(searchQuery)}`);
+      const res = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(searchQuery)}`);
       const uri = await res.text();
 
       if (uri !== "NOT_FOUND") {
@@ -91,7 +94,7 @@ export default function MusicDashboard() {
     if (!name) return;
 
     try {
-      const res = await fetch(`http://localhost:8080/api/playlists/create?name=${encodeURIComponent(name)}`);
+      const res = await fetch(`${API_BASE_URL}/api/playlists/create?name=${encodeURIComponent(name)}`);
       const newId = await res.text();
 
       if (newId !== "ERROR") {
@@ -107,7 +110,7 @@ export default function MusicDashboard() {
   useEffect(() => {
     const fetchPlaylists = async () => {
       try {
-        const res = await fetch('http://localhost:8080/api/playlists');
+        const res = await fetch(`${API_BASE_URL}/api/playlists`);
         const data = await res.json();
         setPlaylists(data);
       } catch (e) {
@@ -128,7 +131,7 @@ export default function MusicDashboard() {
     if (!newName) return;
 
     try {
-      await fetch(`http://localhost:8080/api/playlists/rename?id=${selectedPlaylistId}&newName=${encodeURIComponent(newName)}`);
+      await fetch(`${API_BASE_URL}/api/playlists/rename?id=${selectedPlaylistId}&newName=${encodeURIComponent(newName)}`);
       const updated = playlists.map(pl =>
         pl.id === selectedPlaylistId ? { ...pl, name: newName } : pl
       );
@@ -141,7 +144,7 @@ export default function MusicDashboard() {
   const handleSearch = async () => {
     if (!keyword) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/search?q=${encodeURIComponent(keyword)}`);
+      const res = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(keyword)}`);
       const uri = await res.text();
 
       if (uri === "NOT_FOUND") {
@@ -216,7 +219,7 @@ export default function MusicDashboard() {
 
         const searchQuery = `track:${cleanTitle} artist:${cleanArtist}`;
         try {
-          const spotifyRes = await fetch(`http://localhost:8080/api/search?q=${encodeURIComponent(searchQuery)}`);
+          const spotifyRes = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(searchQuery)}`);
           const uri = await spotifyRes.text();
           const blockedTracks = ["k-pop - travis scott"];
           const uniqueName = `${cleanTitle} - ${cleanArtist}`.toLowerCase();
@@ -253,7 +256,7 @@ export default function MusicDashboard() {
       return;
     }
     try {
-      const url = `http://localhost:8080/api/playlists/add?id=${selectedPlaylistId}&title=${encodeURIComponent(track.title)}&uri=${encodeURIComponent(track.uri)}&genre=${encodeURIComponent(track.genre || "Unknown")}`;
+      const url = `${API_BASE_URL}/api/playlists/add?id=${selectedPlaylistId}&title=${encodeURIComponent(track.title)}&uri=${encodeURIComponent(track.uri)}&genre=${encodeURIComponent(track.genre || "Unknown")}`;
       const res = await fetch(url);
       const status = await res.text();
 
@@ -275,7 +278,7 @@ export default function MusicDashboard() {
     if (!selectedPlaylistId) return;
     if (confirm("이 플레이리스트를 정말 삭제하시겠습니까?")) {
       try {
-        await fetch(`http://localhost:8080/api/playlists/delete?id=${selectedPlaylistId}`);
+        await fetch(`${API_BASE_URL}/api/playlists/delete?id=${selectedPlaylistId}`);
         const updated = playlists.filter(p => p.id !== selectedPlaylistId);
         setPlaylists(updated);
         setSelectedPlaylistId("");
@@ -298,7 +301,7 @@ export default function MusicDashboard() {
     const trackToRemove = playingList[playingIndex];
     if (confirm(`현재 재생 중인 '${trackToRemove.title}' 곡을 삭제하시겠습니까?`)) {
       try {
-        await fetch(`http://localhost:8080/api/playlists/removeTrack?id=${selectedPlaylistId}&uri=${encodeURIComponent(trackToRemove.uri)}`);
+        await fetch(`${API_BASE_URL}/api/playlists/removeTrack?id=${selectedPlaylistId}&uri=${encodeURIComponent(trackToRemove.uri)}`);
         const updated = playlists.map(pl => {
           if (pl.id !== selectedPlaylistId) return pl;
           const newTracks = pl.tracks.filter(t => t.uri !== trackToRemove.uri);
@@ -329,9 +332,9 @@ export default function MusicDashboard() {
     localStorage.setItem('jbeat_history', JSON.stringify(updatedHistory));
 
     try {
-      await fetch(`http://localhost:8080/api/play?uri=${targetTrack.uri}`);
+      await fetch(`${API_BASE_URL}/api/play?uri=${targetTrack.uri}`);
       for (let i = startIndex + 1; i < list.length; i++) {
-        await fetch(`http://localhost:8080/api/queue?uri=${list[i].uri}`);
+        await fetch(`${API_BASE_URL}/api/queue?uri=${list[i].uri}`);
         await new Promise(resolve => setTimeout(resolve, 600));
       }
     } catch (error) {}
@@ -356,14 +359,14 @@ export default function MusicDashboard() {
 
   const pauseTrack = async () => {
     setCurrentTrack("⏸️ 일시 정지됨");
-    await fetch('http://localhost:8080/api/pause');
+    await fetch(`${API_BASE_URL}/api/pause`);
   };
 
   const resumeTrack = async () => {
     if (playingList.length > 0 && playingIndex >= 0) {
       setCurrentTrack(`▶️ 다시 재생 중: ${playingList[playingIndex].title}`);
     }
-    await fetch('http://localhost:8080/api/resume');
+    await fetch(`${API_BASE_URL}/api/resume`);
   };
 
   const genreCounts = history.reduce((acc, track) => {
