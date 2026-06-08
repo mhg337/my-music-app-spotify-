@@ -10,17 +10,24 @@ public class DatabaseConfig {
         return (value != null) ? value : defaultValue;
     }
 
+    // DatabaseConfig.java의 getConnection 메서드
     public static Connection getConnection() throws SQLException {
         try {
-            // PostgreSQL 드라이버 명시적 로드
             Class.forName("org.postgresql.Driver");
         } catch (ClassNotFoundException e) {
             throw new SQLException("PostgreSQL 드라이버를 찾을 수 없습니다!", e);
         }
 
-        String url = getEnvOrDefault("DB_URL", "jdbc:mysql://localhost:3306/jbeat?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8");
-        String user = getEnvOrDefault("DB_USER", "root");
-        String password = getEnvOrDefault("DB_PASS", "mysql");
+        // 환경 변수 주입 (Render에 설정한 값들을 가져옵니다)
+        String url = System.getenv("DB_URL");
+        String user = System.getenv("DB_USER");
+        String password = System.getenv("DB_PASS");
+
+        // 로컬 개발용(환경 변수가 없을 때)
+        if (url == null) {
+            return DriverManager.getConnection("jdbc:mysql://localhost:3306/my_database", "root", "비번");
+        }
+
         return DriverManager.getConnection(url, user, password);
     }
 }
